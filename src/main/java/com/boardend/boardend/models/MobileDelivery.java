@@ -113,7 +113,8 @@ public class MobileDelivery {
 
     public MobileDelivery(String dropAddress, String pickupAddress,
             String packageName, String packageType,
-            String deliveryRider, String deliveryRiderNumber, double amount, String vehicleType,
+            String deliveryRider, String deliveryRiderNumber, double amount, double commission, double serviceFee,
+            double rate, double commissionPayable, String vehicleType,
             boolean delivered, String additionalInformation, String receiverName, String receiverPhone,
             DeliveryStatus status, AdditionalStatus additionalStatus, MobileUser user,
             LocalDateTime deliveryTime, PaymentType paymentType) {
@@ -132,6 +133,10 @@ public class MobileDelivery {
         this.user = user;
         this.deliveryTime = deliveryTime;
         this.amount = amount;
+        this.commission = commission;
+        this.commissionPayable = commissionPayable;
+        this.serviceFee = serviceFee;
+        this.rate = rate;
         this.vehicleType = vehicleType;
         this.paymentType = paymentType;
     }
