@@ -694,8 +694,9 @@ public class DeliveryController {
             return new ResponseEntity<>(deliveries, HttpStatus.OK);
         } catch (Exception e) {
 
-            logger.error("An error occurred while processing the request", e);
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw e;
+            // logger.error("An error occurred while processing the request", e);
+            // return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
