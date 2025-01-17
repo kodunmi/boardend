@@ -16,7 +16,8 @@ import com.boardend.boardend.repository.MobileUserRepository;
 import com.boardend.boardend.repository.RiderRepository;
 import com.boardend.boardend.security.services.MobileUserDetailsImpl;
 import com.boardend.boardend.security.services.RefreshTokenService;
-import com.boardend.boardend.security.services.RiderDetailsImpl;
+import com.boardend.boardend.service.AuthService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,16 +26,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+
 import javax.mail.Authenticator;
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -47,14 +45,12 @@ import javax.mail.internet.MimeMessage;
 
 import com.boardend.boardend.payload.response.JwtResponse;
 import com.boardend.boardend.payload.response.MessageResponse;
-import com.boardend.boardend.repository.RoleRepository;
 import com.boardend.boardend.repository.UserRepository;
 import com.boardend.boardend.security.jwt.JwtUtils;
-import com.boardend.boardend.security.services.UserDetailsImpl;
 
 @RestController
 @RequestMapping("/api/auth")
-//@CrossOrigin(origins = {"https://admin.rubidelivery.com", "https://dashboard.rubidelivery.com"})
+@RequiredArgsConstructor
 @CrossOrigin(origins = "*") // Allow access from any origin
 public class AuthController {
 
@@ -63,9 +59,6 @@ public class AuthController {
 
         @Autowired
         UserRepository userRepository;
-
-        @Autowired
-        RoleRepository roleRepository;
 
         @Autowired
         RiderRepository riderRepository;
@@ -84,70 +77,13 @@ public class AuthController {
         @Autowired
         private MobileUserRepository mobileUserRepository;
 
-
-//        @PostMapping("/signin")
-//        public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) throws Exception {
-//                Optional<User> optionalUser = userRepository.findByUsername(loginRequest.getUsername());
-//                if (optionalUser.isPresent()) {
-//                        User user = optionalUser.get();
-//                        if (user.getStatus() == Status.APPROVED) {
-//                                Authentication authentication = authenticationManager.authenticate(
-//                                        new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-//
-//                                SecurityContextHolder.getContext().setAuthentication(authentication);
-//                                String jwt = jwtUtils.generateJwtToken(authentication);
-//
-//                                UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-//                                List<String> roles = userDetails.getAuthorities().stream().map(item -> item.getAuthority())
-//                                        .collect(Collectors.toList());
-//
-//                                RefreshToken refreshToken = refreshTokenService.createRefreshTokenForUser(userDetails.getId());
-//
-//                                return ResponseEntity.ok(new JwtResponse(jwt,refreshToken.getToken(), userDetails.getId(), null,
-//                                        userDetails.getEmail(), userDetails.getUsername(),
-//                                        userDetails.getStreetAddress(), userDetails.getCompanyName(),
-//                                        userDetails.getCompanyState(), userDetails.getRiderNumber(),
-//                                        null, roles));
-//
-//                        } else {
-//                                throw new Exception("User Not Approved");
-//                        }
-//                } else {
-//                        throw new Exception("User Not Found");
-//                }
-//        }
+        private final AuthService service;
+    @Autowired
+    private AuthService authService;
 
         @PostMapping("/signin")
-        public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) throws AuthenticationException {
-                Optional<User> optionalUser = userRepository.findByUsername(loginRequest.getUsername());
-                if (optionalUser.isPresent()) {
-                        User user = optionalUser.get();
-                        if (user.getStatus() == Status.APPROVED || user.getStatus() == Status.ENABLED ) {
-                                Authentication authentication = authenticationManager.authenticate(
-                                        new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-
-                                SecurityContextHolder.getContext().setAuthentication(authentication);
-                                String jwt = jwtUtils.generateJwtToken(authentication);
-
-                                UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-                                List<String> roles = userDetails.getAuthorities().stream().map(item -> item.getAuthority())
-                                        .collect(Collectors.toList());
-
-                                RefreshToken refreshToken = refreshTokenService.createRefreshTokenForUser(userDetails.getId());
-
-                                return ResponseEntity.ok(new JwtResponse(jwt, refreshToken.getToken(), userDetails.getId(), null,
-                                        userDetails.getEmail(), userDetails.getUsername(),
-                                        userDetails.getStreetAddress(), userDetails.getCompanyName(),
-                                        userDetails.getCompanyState(), userDetails.getRiderNumber(), null, user.getAccountNumber(), userDetails.getBankName(),
-                                        userDetails.getCacNumber(), roles));
-                        } else if (user.getStatus() == Status.DISABLED) {
-                                throw new DisabledException("Your account has been disabled. Please contact support.");
-                        } else {
-                                throw new UserNotApprovedException("User not approved.");
-                        }
-                } else {
-                        throw new UserNotFoundException("User not found.");
-                }
+        public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) throws AuthenticationException {
+                return ResponseEntity.ok(service.loginUser(loginRequest));
         }
 
         @PostMapping("/signup")
@@ -165,10 +101,12 @@ public class AuthController {
 
 
                 // Create new user's account
-                User newUser = new User(signUpRequest.getCompanyName(),
-                        signUpRequest.getUsername(), signUpRequest.getEmail(), encoder.encode(signUpRequest.getPassword()), signUpRequest.getCacNumber(),
-                        signUpRequest.getStreetAddress(), signUpRequest.getCompanyState(), signUpRequest.getRiderNumber(), signUpRequest.getAccountNumber(), signUpRequest.getBankName(),
-                        Status.NOT_APPROVED);
+                User newUser = new User(
+//                        signUpRequest.getCompanyName(),
+//                        signUpRequest.getUsername(), signUpRequest.getEmail(), encoder.encode(signUpRequest.getPassword()), signUpRequest.getCacNumber(),
+//                        signUpRequest.getStreetAddress(), signUpRequest.getCompanyState(), signUpRequest.getRiderNumber(), signUpRequest.getAccountNumber(), signUpRequest.getBankName(),
+//                        Status.NOT_APPROVED
+                );
                 userRepository.save(newUser);
 
 
@@ -234,45 +172,6 @@ public class AuthController {
                 }
         }
 
-//        @PostMapping("/rider/signup")
-//        public ResponseEntity<?> createRider(@Valid @RequestBody RiderSignupRequest signUpRequest) {
-//                // Check if the username is already taken
-//                if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-//                        return ResponseEntity.badRequest().body(new MessageResponse("Error: Username is already taken!"));
-//                }
-//
-//                // Check if the email is already in use
-//                if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-//                        return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use!"));
-//                }
-//
-//                // Retrieve the authenticated user (admin) from the JWT token
-//                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//                String adminUsername = authentication.getName();
-//                User adminUser = userRepository.findByUsername(adminUsername).orElse(null); // Update this line
-//
-//                // If the admin user is not found, handle the error as needed
-//                if (adminUser == null) {
-//                        return ResponseEntity.badRequest().body(new MessageResponse("Error: Admin user not found!"));
-//                }
-//
-//                // Check if a rider with the given username already exists
-//                if (riderRepository.existsByUsername(signUpRequest.getUsername())) {
-//                        return ResponseEntity.badRequest().body(new MessageResponse("Error: Rider account already exists!"));
-//                }
-//
-//                // Create the rider associated with the admin user
-//                Rider newRider = new Rider(signUpRequest.getName(), signUpRequest.getPhone(),
-//                        signUpRequest.getStreetAddress(), signUpRequest.getEmail(), signUpRequest.getUsername(),
-//                        encoder.encode(signUpRequest.getPassword()), signUpRequest.getVehicleNumber(), signUpRequest.getCompanyState(), signUpRequest.getCompanyName(), true, Status.APPROVED);
-//
-//                // Set the relationship between rider and admin
-//                newRider.setUser(adminUser);
-//                riderRepository.save(newRider);
-//
-//                return ResponseEntity.ok(new MessageResponse("Rider Account has been created successfully."));
-//        }
-
         @PostMapping("/rider/signup")
         public ResponseEntity<?> createRider(@Valid @RequestBody RiderSignupRequest signUpRequest) {
                 // Check if the username is already taken
@@ -329,46 +228,7 @@ public class AuthController {
 
         @PostMapping("/rider/signin")
         public ResponseEntity<?> authenticateRider(@Valid @RequestBody LoginRequest loginRequest) throws Exception {
-                Optional<Rider> optionalUser = riderRepository.findByUsernameIgnoreCase(loginRequest.getUsername());
-
-                if (optionalUser.isPresent()) {
-                        Rider rider = optionalUser.get();
-
-                        if (rider.getStatus() == Status.NOT_APPROVED) {
-                                throw new Exception("This account has been locked by your administrator. Kindly contact them for further assistance.");
-                        }
-
-                        Authentication authentication = authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                        String jwt = jwtUtils.generateJwtToken(authentication);
-
-                        RiderDetailsImpl userDetails = (RiderDetailsImpl) authentication.getPrincipal();
-                        List<String> roles = userDetails.getAuthorities().stream()
-                                .map(item -> item.getAuthority())
-                                .collect(Collectors.toList());
-
-                        RefreshToken refreshToken = refreshTokenService.createRefreshTokenForRider(userDetails.getId());
-
-                        return ResponseEntity.ok(new JwtResponse(
-                                jwt,
-                                refreshToken.getToken(),
-                                userDetails.getId(),
-                                userDetails.getName(),
-                                userDetails.getUsername(),
-                                userDetails.getEmail(),
-                                userDetails.getStreetAddress(),
-                                userDetails.getStreetAddress(),
-                                null,
-                                userDetails.getVehicleNumber(),
-                                null,
-                                true,
-                                roles
-                        ));
-                } else {
-                        throw new Exception("User Not Found");
-                }
+                 return ResponseEntity.ok(authService.loginRider(loginRequest));
         }
 
 
@@ -528,42 +388,6 @@ public class AuthController {
                 return currentTime.isBefore(validTimeframe);
         }
 
-        // Mobile User
-
-//        @PostMapping("/mobile/signin")
-//        public ResponseEntity<?> authenticateMobileUser(@Valid @RequestBody LoginRequest loginRequest) {
-//                Optional<MobileUser> optionalUser = mobileUserRepository.findByUsername(loginRequest.getUsername());
-//                if (optionalUser.isPresent()) {
-//                        MobileUser user = optionalUser.get();
-//
-//                        Authentication authentication = authenticationManager.authenticate(
-//                                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-//
-//                        SecurityContextHolder.getContext().setAuthentication(authentication);
-//                        String jwt = jwtUtils.generateJwtToken(authentication);
-//
-//                        MobileUserDetailsImpl userDetails = new MobileUserDetailsImpl(user);
-//                        List<String> roles = userDetails.getAuthorities()
-//                                .stream()
-//                                .map(item -> item.getAuthority())
-//                                .collect(Collectors.toList());
-//
-//                        RefreshToken refreshToken = refreshTokenService.createRefreshTokenForMobileUser(userDetails.getId());
-//
-//                        JwtResponse mobileJwtResponse = new JwtResponse(jwt,
-//                                refreshToken.getToken(),
-//                                userDetails.getId(),
-//                                userDetails.getName(),
-//                                userDetails.getUsername(),
-//                                userDetails.getEmail(),
-//                                userDetails.getPhone(),
-//                                roles);
-//
-//                        return ResponseEntity.ok(mobileJwtResponse);
-//                } else {
-//                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found.");
-//                }
-//        }
 @PostMapping("/mobile/signin")
 public ResponseEntity<?> authenticateMobileUser(@Valid @RequestBody LoginRequest loginRequest) {
         Optional<MobileUser> optionalUser = mobileUserRepository.findByUsernameIgnoreCase(loginRequest.getUsername());
@@ -593,14 +417,16 @@ public ResponseEntity<?> authenticateMobileUser(@Valid @RequestBody LoginRequest
 
                 RefreshToken refreshToken = refreshTokenService.createRefreshTokenForMobileUser(userDetails.getId());
 
-                JwtResponse mobileJwtResponse = new JwtResponse(jwt,
-                        refreshToken.getToken(),
-                        userDetails.getId(),
-                        userDetails.getName(),
-                        userDetails.getUsername(),
-                        userDetails.getEmail(),
-                        userDetails.getPhone(),
-                        roles);
+                JwtResponse mobileJwtResponse = new JwtResponse(
+//                        jwt,
+//                        refreshToken.getToken(),
+//                        userDetails.getId(),
+//                        userDetails.getName(),
+//                        userDetails.getUsername(),
+//                        userDetails.getEmail(),
+//                        userDetails.getPhone(),
+//                        roles
+                );
 
                 return ResponseEntity.ok(mobileJwtResponse);
         } else {
@@ -792,22 +618,7 @@ public ResponseEntity<?> authenticateMobileUser(@Valid @RequestBody LoginRequest
 
                 return ResponseEntity.ok(new MessageResponse("OTP verified successfully"));
         }
-//        @PostMapping("/verify")
-//        public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest verifyOtpRequest) {
-//        String otp = verifyOtpRequest.getOtp();
-//        MobileUser user = mobileUserRepository.findByEmail(verifyOtpRequest.getEmail()).orElseThrow(
-//                () -> new ResourceNotFoundException("User not found with email: " + verifyOtpRequest.getEmail()));
-//
-//        if (!otp.equals(user.getOtp())) {
-//                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-//                        .body(new MessageResponse("Invalid OTP"));
-//        }
-//
-//        user.setOtp(null);
-//        mobileUserRepository.save(user);
-//
-//        return ResponseEntity.ok(new MessageResponse("OTP verified successfully"));
-//}
+
 
 
         private String generateOtp() {

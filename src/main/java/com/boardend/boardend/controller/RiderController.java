@@ -109,8 +109,7 @@ public class RiderController {
                     .mapToDouble(MobileDelivery::getCommissionPayable)
                     .sum();
 
-            ApiResponse<Double> response = new ApiResponse<>("Total earning fetched successfully", totalEarnings,
-                    "success");
+            ApiResponse<Double> response = new ApiResponse<>("Total earning fetched successfully", totalEarnings, "success");
             return ResponseEntity.ok(response);
 
             // return new ResponseEntity<>(totalEarnings, HttpStatus.OK);

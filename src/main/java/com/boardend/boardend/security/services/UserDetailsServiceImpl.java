@@ -2,10 +2,13 @@ package com.boardend.boardend.security.services;
 
 import com.boardend.boardend.models.MobileUser;
 import com.boardend.boardend.repository.MobileUserRepository;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,24 +18,18 @@ import com.boardend.boardend.repository.UserRepository;
 import com.boardend.boardend.repository.RiderRepository;
 
 @Service
+@RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
+    private final UserRepository userRepository;
+    private final RiderRepository riderRepository;
+    private final MobileUserRepository mobileUserRepository;
+    private final ModelMapper mapper;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RiderRepository riderRepository;
-
-    @Autowired
-    private MobileUserRepository mobileUserRepository;
-
-    @Override
-    @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username).orElse(null);
 
         if (user != null) {
-            return UserDetailsImpl.build(user);
+            return mapper.map(user, UserDetailsImpl.class);
         }
 
         Rider rider = riderRepository.findByUsernameIgnoreCase(username).orElse(null);
